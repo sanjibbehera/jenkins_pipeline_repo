@@ -29,7 +29,7 @@ pipeline {
       stage('Private Nexus Repo Push') {
          steps {
             withCredentials([string(credentialsId: 'nexus-repo', variable: 'NexusRepoPwd')]) {
-		sh "whoami; id -a `whoami`; sudo docker build -t myprivateimg:${DOCKER_TAG} ."
+		sh "sudo docker build -t myprivateimg:${DOCKER_TAG} ."
 	}
          }
       }
