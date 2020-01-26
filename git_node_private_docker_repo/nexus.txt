@@ -3,7 +3,7 @@ pipeline {
    agent { node { label 'jenkins-node-slave'} }
    
    environment{
-		PRIVATE_DOCKER_REPO='XXXXXX:8123'
+	PRIVATE_DOCKER_REPO='XXXXXX:8123'
    }
 
    stages {
@@ -20,24 +20,25 @@ pipeline {
       stage('Build Code') {
          steps {
             sh 'pwd; npm install; npm install eslint --save-dev'
-			script {
-				DOCKER_TAG = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
-			}
-			sh ''' find . -type d -name \\"node_modules\\" -prune -o -type f -name \\"*.js\\" -exec ./node_modules/.bin/eslint *.js {} \\; '''
+	script {
+		DOCKER_TAG = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+	}
+	sh ''' find . -type d -name \\"node_modules\\" -prune -o -type f -name \\"*.js\\" -exec ./node_modules/.bin/eslint *.js {} \\; '''
          }
       }
       stage('Private Nexus Repo Push') {
          steps {
             withCredentials([string(credentialsId: 'nexus-repo', variable: 'NexusRepoPwd')]) {
-				sh "whoami; id -a `whoami`; sudo docker build -t myprivateimg:${DOCKER_TAG} ."
-			}
+		sh "whoami; id -a `whoami`; sudo docker build -t myprivateimg:${DOCKER_TAG} ."
+	}
          }
       }
       stage('Publish Docker Image') {
          steps {
             withCredentials([string(credentialsId: 'nexus-repo', variable: 'NexusRepoPwd')]) {
-				sh "sudo docker login -u admin -p ${NexusRepoPwd} ${PRIVATE_DOCKER_REPO}"
-				sh "sudo docker tag myprivateimg:${DOCKER_TAG} ${PRIVATE_DOCKER_REPO}/myprivateimg:${DOCKER_TAG} && sudo docker push ${PRIVATE_DOCKER_REPO}/myprivateimg:${DOCKER_TAG}"
+	sh "sudo docker login -u admin -p ${NexusRepoPwd} ${PRIVATE_DOCKER_REPO}"
+	sh "sudo docker tag myprivateimg:${DOCKER_TAG} ${PRIVATE_DOCKER_REPO}/myprivateimg:${DOCKER_TAG} \\
+	 && sudo docker push ${PRIVATE_DOCKER_REPO}/myprivateimg:${DOCKER_TAG}"
 			}
          }
       }
