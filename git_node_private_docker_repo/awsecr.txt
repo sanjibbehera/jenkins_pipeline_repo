@@ -1,0 +1,49 @@
+pipeline {
+   agent { node { label 'nodejsProject_Node'} }
+   
+   stages {
+      stage('CleanWorkspace') {
+            steps {
+                cleanWs()
+            }
+        }
+      stage('SCM Checkout') {
+         steps {
+            git 'https://github.com/sanjibbehera/NodeJsHelloWorld.git'
+         }
+      }
+      stage('Build Code') {
+         steps {
+            sh 'pwd; npm install; npm install eslint --save-dev'
+		script {
+			DOCKER_TAG = sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+		}
+		sh ''' find . -type d -name \\"node_modules\\" -prune -o -type f -name \\"*.js\\" -exec ./node_modules/.bin/eslint *.js {} \\; '''
+			 }
+      }
+	  stage('Build Docker Image') {
+         steps {
+			sh "sudo docker build -t sanjibbehera/docker_images_repo:${DOCKER_TAG} . && sudo docker tag sanjibbehera/docker_images_repo:${DOCKER_TAG} 601473919345.dkr.ecr.ap-south-1.amazonaws.com/sanjibbehera/docker_images_repo:${DOCKER_TAG}"
+		 }
+	  }
+	  stage('Publish Docker Image') {
+         steps {
+			withAWS(credentials: 'aws_credentials', region: 'ap-south-1') {
+				sh 'sudo $(aws ecr get-login --no-include-email --region ap-south-1)'
+				sh "sudo docker push 601473919345.dkr.ecr.ap-south-1.amazonaws.com/sanjibbehera/docker_images_repo:${DOCKER_TAG}"
+			}
+		 }
+	  }
+	  stage('Pull Docker Image') {
+         steps {
+		   node('docker_node'){
+			withAWS(credentials: 'aws_credentials', region: 'ap-south-1') {
+				sh 'sudo $(aws ecr get-login --no-include-email --region ap-south-1)'
+				sh "sudo docker pull 601473919345.dkr.ecr.ap-south-1.amazonaws.com/sanjibbehera/docker_images_repo:${DOCKER_TAG}"
+				sh "sudo docker run -d -p 192.168.7.20:3299:3299 --env-file /home/vagrant/sanjib/env.list 601473919345.dkr.ecr.ap-south-1.amazonaws.com/sanjibbehera/docker_images_repo:${DOCKER_TAG}"
+				}
+			}
+		}
+	 }
+   }
+}
